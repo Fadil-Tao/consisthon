@@ -1,0 +1,237 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+
+@custom-variant dark (&:is(.dark *));
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-success: var(--success);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --font-sans: "Inter", Arial, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+:root {
+  --background: oklch(0.99 0 0);
+  --foreground: oklch(0.141 0.005 285.823);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.141 0.005 285.823);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.141 0.005 285.823);
+  --primary: oklch(0.21 0.006 285.885);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.967 0.001 286.375);
+  --secondary-foreground: oklch(0.21 0.006 285.885);
+  --muted: oklch(0.967 0.001 286.375);
+  --muted-foreground: oklch(0.552 0.016 285.938);
+  --accent: oklch(0.935 0.004 286.32);
+  --accent-foreground: oklch(0.21 0.006 285.885);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.94 0.004 286.32);
+  --input: oklch(0.92 0.004 286.32);
+  --ring: oklch(0.705 0.015 286.067);
+  --radius: 0.45rem;
+  --success: #508261;
+  --control-shadow:
+    0 18px 47px 0 rgb(82 82 82 / 3%),
+    0 7.5px 19px 0 rgb(82 82 82 / 2%),
+    0 4px 10.5px 0 rgb(82 82 82 / 2%),
+    0 2.3px 5.8px 0 rgb(82 82 82 / 1%),
+    0 1.2px 3.1px 0 rgb(82 82 82 / 1%),
+    0 0.5px 1.3px 0 rgb(82 82 82 / 1%),
+    0 0 0 1px rgb(212 212 212 / 30%);
+}
+.dark {
+  --background: oklch(0.2 0.006 285.885);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.21 0.006 285.885);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.21 0.006 285.885);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.92 0.004 286.32);
+  --primary-foreground: oklch(0.21 0.006 285.885);
+  --secondary: oklch(0.274 0.006 286.033);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.274 0.006 286.033);
+  --muted-foreground: oklch(0.705 0.015 286.067);
+  --accent: oklch(0.274 0.006 286.033);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.552 0.016 285.938);
+  --success: #9ac5a4;
+}
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    font-size: 12px;
+  }
+  button:not(:disabled),
+  a,
+  summary {
+    cursor: pointer;
+  }
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    -webkit-tap-highlight-color: transparent;
+  }
+  ::selection {
+    background: var(--primary);
+    color: var(--primary-foreground);
+  }
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--primary);
+  }
+}
+.brand-mark {
+  display: grid;
+  grid-template-columns: repeat(2, 7px);
+  gap: 3px;
+}
+.brand-mark i {
+  width: 7px;
+  height: 7px;
+  border-radius: 1.5px;
+  background: #60806b;
+}
+.brand-mark i:nth-child(2) {
+  background: #aabd9e;
+}
+.brand-mark i:nth-child(3) {
+  background: #cfdbc5;
+}
+.brand-mark i:nth-child(4) {
+  background: #8caa84;
+}
+.eyebrow {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--muted-foreground);
+}
+.panel {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.field-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+@layer components {
+  .select-input {
+    height: 28px;
+    width: 100%;
+    border: 1px solid var(--input);
+    border-radius: calc(var(--radius) * 0.8);
+    padding: 0 8px;
+    font-size: 12px;
+    line-height: 1.625;
+    background: color-mix(in oklch, var(--input) 20%, transparent);
+    outline: none;
+    transition:
+      border-color 150ms,
+      box-shadow 150ms;
+  }
+  .select-input:focus-visible {
+    border-color: var(--ring);
+    box-shadow: 0 0 0 2px color-mix(in oklch, var(--ring) 30%, transparent);
+  }
+  .select-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .dark .select-input {
+    background: color-mix(in oklch, var(--input) 30%, transparent);
+  }
+}
+.heatmap {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  gap: 4px;
+}
+.heat-cell {
+  height: 13px;
+  width: 13px;
+  border-radius: 2px;
+  background: var(--muted);
+  border: 1px solid rgba(0, 0, 0, 0.025);
+}
+.heat-cell[data-level="1"] {
+  background: #d6e5cb;
+}
+.heat-cell[data-level="2"] {
+  background: #a8c597;
+}
+.heat-cell[data-level="3"] {
+  background: #77a367;
+}
+.heat-cell[data-level="4"] {
+  background: #4c7950;
+}
+.dark .heat-cell[data-level="1"] {
+  background: #344e37;
+}
+.dark .heat-cell[data-level="2"] {
+  background: #507553;
+}
+.dark .heat-cell[data-level="3"] {
+  background: #719c6e;
+}
+.dark .heat-cell[data-level="4"] {
+  background: #a0c991;
+}
+.heat-cell:disabled {
+  cursor: default;
+}
+.heat-cell[data-future="true"] {
+  opacity: 0.35;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: Accessibility preference overrides component animations. */
+    animation-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Accessibility preference overrides component transitions. */
+    transition-duration: 0.01ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: Accessibility preference overrides smooth scrolling. */
+    scroll-behavior: auto !important;
+  }
+}

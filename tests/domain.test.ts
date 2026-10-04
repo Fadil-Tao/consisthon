@@ -71,6 +71,32 @@ test("fines stop when a finite goal ends and do not accrue before a future goal"
   assert.equal(future.fines, 0);
 });
 
+test("edited room dates bound existing goals and the current fine rate recalculates missed days without changing points", () => {
+  const entries = [
+    { date: "2026-10-01", points: 10 },
+    { date: "2026-10-03", points: 25 },
+  ];
+  const goal = { startDate: "2026-10-01", endDate: "2026-10-05" };
+  const room = { startDate: "2026-10-02", endDate: "2026-10-04" };
+  const originalRate = memberStats(entries, goal, "2026-10-10", 100, room);
+  assert.equal(originalRate.missedDays, 2);
+  assert.equal(originalRate.fines, 200);
+  const updatedRate = memberStats(entries, goal, "2026-10-10", 300, room);
+  assert.equal(updatedRate.fines, 600);
+  assert.equal(updatedRate.points, 35);
+  const extended = memberStats(entries, goal, "2026-10-10", 100, {
+    startDate: "2026-09-01",
+    endDate: null,
+  });
+  assert.equal(extended.missedDays, 3);
+  const upcoming = memberStats(entries, goal, "2026-10-10", 100, {
+    startDate: "2026-10-11",
+    endDate: null,
+  });
+  assert.equal(upcoming.fines, 0);
+  assert.equal(upcoming.streak, 0);
+});
+
 test("best streak is independent of current streak and duplicate dates do not inflate it", () => {
   const entries = [
     "2026-10-01",

@@ -137,6 +137,23 @@ export const goals = sqliteTable(
   (t) => [uniqueIndex("goal_room_user").on(t.roomId, t.userId)],
 );
 
+export const roomBans = sqliteTable(
+  "room_bans",
+  {
+    id: text("id").primaryKey(),
+    roomId: text("room_id")
+      .notNull()
+      .references(() => rooms.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: integer("created_at", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [uniqueIndex("ban_room_user").on(t.roomId, t.userId)],
+);
+
 export const checkins = sqliteTable(
   "checkins",
   {

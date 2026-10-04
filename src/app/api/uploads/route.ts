@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { MAX_PROOF_SIZE, PROOF_TYPES } from "@/lib/proof";
+import { InvalidProofError, MAX_PROOF_SIZE, PROOF_TYPES } from "@/lib/proof";
 import { requireMembership } from "@/lib/queries";
 import { AppError, requireViewer } from "@/lib/session";
 import { storageAvailable } from "@/lib/storage";
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
       contentLength > MAX_PROOF_SIZE + 65536
     )
       return NextResponse.json(
-        { error: "Proof files must be 500 KB or smaller." },
+        { error: "Proof images must be 500 KB or smaller." },
         { status: 413 },
       );
     const form = await request.formData();
@@ -45,16 +45,18 @@ export async function POST(request: Request) {
       !PROOF_TYPES.includes(file.type)
     )
       return NextResponse.json(
-        { error: "Use a JPG, PNG, WebP, PDF, or MP4 file." },
+        { error: "Use a JPG, PNG, or WebP image." },
         { status: 400 },
       );
     if (file.size > MAX_PROOF_SIZE)
       return NextResponse.json(
-        { error: "Proof files must be 500 KB or smaller." },
+        { error: "Proof images must be 500 KB or smaller." },
         { status: 413 },
       );
     return NextResponse.json(await storeProofUpload(viewer.id, roomId, file));
   } catch (error) {
+    if (error instanceof InvalidProofError)
+      return NextResponse.json({ error: error.message }, { status: 400 });
     if (error instanceof UploadLimitError)
       return NextResponse.json({ error: error.message }, { status: 429 });
     if (error instanceof AppError)

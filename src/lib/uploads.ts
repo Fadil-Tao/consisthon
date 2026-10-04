@@ -4,9 +4,13 @@ import { and, eq, lt, notExists, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { checkins, uploads, user } from "@/db/schema";
 import {
+  InvalidProofError,
+  isProofImage,
   MAX_PENDING_UPLOADS,
+  MAX_PROOF_SIZE,
   MAX_UPLOADS_PER_DAY,
   MAX_USER_PROOF_BYTES,
+  PROOF_TYPES,
   UNATTACHED_PROOF_TTL_MS,
 } from "./proof";
 import { deleteProof, saveProof, storageConfigured } from "./storage";
@@ -18,6 +22,13 @@ export async function storeProofUpload(
   roomId: string,
   file: File,
 ) {
+  if (file.size > MAX_PROOF_SIZE)
+    throw new InvalidProofError("Proof images must be 500 KB or smaller.");
+  if (!file.size || !PROOF_TYPES.includes(file.type))
+    throw new InvalidProofError("Use a JPG, PNG, or WebP image.");
+  const body = Buffer.from(await file.arrayBuffer());
+  if (!isProofImage(body, file.type))
+    throw new InvalidProofError("Use a valid JPG, PNG, or WebP image.");
   const id = randomUUID();
   const key = storageConfigured
     ? `proof/${roomId}/${userId}/${id}`
@@ -82,7 +93,7 @@ export async function storeProofUpload(
     );
   }
   try {
-    await saveProof(key, Buffer.from(await file.arrayBuffer()), file.type);
+    await saveProof(key, body, file.type);
   } catch (error) {
     try {
       await deleteProof(key);

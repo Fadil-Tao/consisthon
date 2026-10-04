@@ -8,6 +8,13 @@
       "when": 1791101702454,
       "tag": "0000_strong_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1791124465360,
+      "tag": "0001_red_the_watchers",
+      "breakpoints": true
     }
   ]
 }

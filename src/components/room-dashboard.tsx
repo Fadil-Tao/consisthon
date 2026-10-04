@@ -9,7 +9,6 @@ import {
   CheckCheck,
   ChevronRight,
   Crown,
-  ExternalLink,
   Flame,
   Home,
   Link2,
@@ -32,9 +31,11 @@ import {
   CommentForm,
   GoalDialog,
   InviteDialog,
+  RemoveMemberDialog,
   RoomForm,
 } from "./forms";
 import { Heatmap } from "./heatmap";
+import { ProofImagePreview, ProofLinkPreview } from "./proof-preview";
 import { Avatar } from "./ui/avatar";
 import { Button } from "./ui/button";
 import {
@@ -86,10 +87,18 @@ export function RoomDashboard({
     me.goal &&
     today >= me.goal.startDate &&
     (!me.goal.endDate || today <= me.goal.endDate);
-  const activeEntries =
-    feedFilter === "all"
-      ? entries
-      : entries.filter((c) => c.userId === feedFilter);
+  const memberIds = new Set(rankings.map((person) => person.userId));
+  const currentFilter = memberIds.has(feedFilter) ? feedFilter : "all";
+  const firstComparison = memberIds.has(compareA) ? compareA : userId;
+  const secondComparison = memberIds.has(compareB)
+    ? compareB
+    : rankings.find((person) => person.userId !== firstComparison)?.userId ||
+      userId;
+  const activeEntries = entries.filter(
+    (entry) =>
+      memberIds.has(entry.userId) &&
+      (currentFilter === "all" || entry.userId === currentFilter),
+  );
   const selectedPerson = selected
     ? rankings.find((p) => p.userId === selected.userId)
     : null;
@@ -279,7 +288,7 @@ export function RoomDashboard({
                 <select
                   className="select-input w-auto text-muted-foreground"
                   aria-label="Filter activity by member"
-                  value={feedFilter}
+                  value={currentFilter}
                   onChange={(e) => {
                     setFeedFilter(e.target.value);
                     setFeedLimit(8);
@@ -608,7 +617,7 @@ export function RoomDashboard({
                 <select
                   aria-label="First comparison member"
                   className="select-input !w-auto"
-                  value={compareA}
+                  value={firstComparison}
                   onChange={(e) => setCompareA(e.target.value)}
                 >
                   {rankings.map((p) => (
@@ -623,7 +632,7 @@ export function RoomDashboard({
                 <select
                   aria-label="Second comparison member"
                   className="select-input !w-auto"
-                  value={compareB}
+                  value={secondComparison}
                   onChange={(e) => setCompareB(e.target.value)}
                 >
                   {rankings.map((p) => (
@@ -636,8 +645,8 @@ export function RoomDashboard({
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {[
-                { key: "left", userId: compareA },
-                { key: "right", userId: compareB },
+                { key: "left", userId: firstComparison },
+                { key: "right", userId: secondComparison },
               ].map((column) => {
                 const id = column.userId;
                 const p = rankings.find((person) => person.userId === id);
@@ -757,6 +766,22 @@ export function RoomDashboard({
                     here when they're ready.
                   </p>
                 )}
+                {room.masterId === userId && person.userId !== userId ? (
+                  <div className="mt-5 flex justify-end gap-1 border-t pt-3">
+                    <RemoveMemberDialog
+                      roomId={room.id}
+                      userId={person.userId}
+                      name={person.name}
+                      kind="kick"
+                    />
+                    <RemoveMemberDialog
+                      roomId={room.id}
+                      userId={person.userId}
+                      name={person.name}
+                      kind="ban"
+                    />
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -803,7 +828,7 @@ export function RoomDashboard({
                   <Plus className="size-3.5" />
                 </summary>
                 <div className="mt-6">
-                  <RoomForm room={room} locked={rankings.some((p) => p.goal)} />
+                  <RoomForm room={room} />
                 </div>
               </details>
             ) : null}
@@ -839,7 +864,7 @@ export function RoomDashboard({
             <div className="px-1 text-[10px] leading-6 text-muted-foreground">
               <p>One check-in per person, per day.</p>
               <p>Day ends at midnight · {room.timezone}.</p>
-              <p>Dates, scoring, and fines stay fixed once members commit.</p>
+              <p>The room master can update the schedule, points, and fines.</p>
             </div>
           </aside>
         </section>
@@ -878,30 +903,30 @@ export function RoomDashboard({
               <p className="my-5 whitespace-pre-line text-xs leading-7">
                 {selected.body}
               </p>
-              <div className="mb-6 flex flex-wrap gap-2">
+              <div className="mb-6 space-y-3">
                 {selected.proofUrl ? (
-                  <Button asChild variant="outline" size="sm">
-                    <a
-                      href={selected.proofUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <ExternalLink />
-                      Open proof link
-                    </a>
-                  </Button>
+                  <ProofLinkPreview
+                    roomId={room.id}
+                    value={selected.proofUrl}
+                  />
                 ) : null}
                 {selected.attachmentId ? (
-                  <Button asChild variant="outline" size="sm">
-                    <a
-                      href={`/api/proof/${selected.attachmentId}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <UploadIcon />
-                      Download proof
-                    </a>
-                  </Button>
+                  <div className="space-y-2">
+                    <ProofImagePreview
+                      key={selected.attachmentId}
+                      src={`/api/proof/${selected.attachmentId}?preview=1`}
+                    />
+                    <Button asChild variant="outline" size="sm">
+                      <a
+                        href={`/api/proof/${selected.attachmentId}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Link2 />
+                        Download proof
+                      </a>
+                    </Button>
+                  </div>
                 ) : null}
               </div>
               <div className="border-t pt-5">
@@ -954,9 +979,6 @@ function SectionHeading({
       </p>
     </div>
   );
-}
-function UploadIcon() {
-  return <Link2 />;
 }
 function Stat({
   label,

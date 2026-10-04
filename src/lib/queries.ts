@@ -100,6 +100,7 @@ export async function getRoomData(roomId: string, userId: string) {
           goal,
           today,
           room.missedDayFine,
+          room,
         ),
       };
     })

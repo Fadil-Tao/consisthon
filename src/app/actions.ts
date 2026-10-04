@@ -1,7 +1,7 @@
 "use server";
 
 import { randomBytes, randomUUID } from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -19,6 +19,8 @@ import { demoEnabled } from "@/lib/auth";
 import { todayIn } from "@/lib/domain";
 import { requireMembership } from "@/lib/queries";
 import { safeRedirectPath } from "@/lib/redirect";
+import { joinRoomMember, removeRoomMember } from "@/lib/room-members";
+import { updateRoomRules } from "@/lib/room-rules";
 import { AppError, requireViewer } from "@/lib/session";
 import { checkinInput, goalInput, roomInput } from "@/lib/validation";
 
@@ -86,18 +88,31 @@ export async function joinRoom(input: { code?: string; roomId?: string }) {
       );
     if (room.endDate && room.endDate < todayIn(room.timezone))
       throw new AppError("This challenge has ended.");
-    await db
-      .insert(members)
-      .values({
-        id: randomUUID(),
-        roomId: room.id,
-        userId: viewer.id,
-        joinedDate: todayIn(room.timezone),
-      })
-      .onConflictDoNothing();
+    await joinRoomMember(room.id, viewer.id, todayIn(room.timezone));
     revalidatePath("/");
     revalidatePath(`/rooms/${room.id}`);
     return { id: room.id };
+  });
+}
+
+export async function removeMember(
+  roomId: string,
+  userId: string,
+  kind: "kick" | "ban",
+) {
+  return action(async () => {
+    const viewer = await requireViewer();
+    await removeRoomMember(
+      z.string().max(100).parse(roomId),
+      viewer.id,
+      z.string().max(100).parse(userId),
+      z.enum(["kick", "ban"]).parse(kind),
+    );
+    revalidatePath("/");
+    revalidatePath("/rooms");
+    revalidatePath(`/rooms/${roomId}`);
+    revalidatePath(`/rooms/${roomId}/waiting`);
+    return null;
   });
 }
 
@@ -117,8 +132,9 @@ export async function saveGoal(roomId: string, input: unknown) {
       if (room.endDate && room.endDate < today)
         throw new AppError("This room has ended.");
       if (
-        data.startDate < room.startDate ||
-        (room.endDate && data.startDate > room.endDate)
+        !existing &&
+        (data.startDate < room.startDate ||
+          (room.endDate && data.startDate > room.endDate))
       )
         throw new AppError("Choose a goal start within the room's date range.");
       if (
@@ -126,7 +142,11 @@ export async function saveGoal(roomId: string, input: unknown) {
         (data.startDate < today || data.startDate < member.joinedDate)
       )
         throw new AppError("Start your goal today or on a future date.");
-      if (room.endDate && (!data.endDate || data.endDate > room.endDate))
+      if (
+        !existing &&
+        room.endDate &&
+        (!data.endDate || data.endDate > room.endDate)
+      )
         throw new AppError("Your goal must end within this room's date range.");
       if (
         existing &&
@@ -240,31 +260,10 @@ export async function addComment(checkinId: string, body: string) {
 export async function updateRoom(roomId: string, input: unknown) {
   return action(async () => {
     const viewer = await requireViewer();
-    const data = roomInput.parse(input);
-    await db.transaction(async (tx) => {
-      const [room] = await tx.select().from(rooms).where(eq(rooms.id, roomId));
-      if (!room || room.masterId !== viewer.id)
-        throw new AppError("Only the room master can update room rules.");
-      const [activity] = await tx
-        .select({ count: sql<number>`count(*)` })
-        .from(goals)
-        .where(eq(goals.roomId, roomId));
-      if (
-        activity.count &&
-        (data.startDate !== room.startDate ||
-          data.endDate !== room.endDate ||
-          data.timezone !== room.timezone ||
-          data.missedDayFine !== room.missedDayFine ||
-          data.currency !== room.currency ||
-          data.externalFine !== room.externalFine ||
-          JSON.stringify(data.pointLevels) !== JSON.stringify(room.pointLevels))
-      )
-        throw new AppError(
-          "Dates, scoring, and fines are locked after the first member sets a goal. You can still edit the title, note, and visibility.",
-        );
-      await tx.update(rooms).set(data).where(eq(rooms.id, roomId));
-    });
+    await updateRoomRules(roomId, viewer.id, input);
     revalidatePath(`/rooms/${roomId}`);
+    revalidatePath(`/rooms/${roomId}/waiting`);
+    revalidatePath("/rooms");
     revalidatePath("/");
     return null;
   });

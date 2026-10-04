@@ -2,12 +2,13 @@ import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { uploads } from "@/db/schema";
+import { PROOF_TYPES } from "@/lib/proof";
 import { requireMembership } from "@/lib/queries";
 import { AppError, requireViewer } from "@/lib/session";
 import { proofDownloadUrl, readLocalProof } from "@/lib/storage";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
@@ -17,6 +18,12 @@ export async function GET(
     if (!file)
       return NextResponse.json({ error: "Proof not found." }, { status: 404 });
     await requireMembership(file.roomId, viewer.id);
+    const inline = new URL(request.url).searchParams.get("preview") === "1";
+    if (inline && !PROOF_TYPES.includes(file.contentType))
+      return NextResponse.json(
+        { error: "Only images can be previewed." },
+        { status: 415 },
+      );
     if (file.key.startsWith("local:")) {
       const body = await readLocalProof(file.key);
       if (!body)
@@ -28,14 +35,14 @@ export async function GET(
         headers: {
           "Content-Type": file.contentType,
           "Content-Length": String(body.length),
-          "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+          "Content-Disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
           "Cache-Control": "private, no-store",
           "X-Content-Type-Options": "nosniff",
         },
       });
     }
     const response = NextResponse.redirect(
-      await proofDownloadUrl(file.key, file.name),
+      await proofDownloadUrl(file.key, file.name, inline),
     );
     response.headers.set("Cache-Control", "private, no-store");
     return response;

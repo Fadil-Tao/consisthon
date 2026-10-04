@@ -15,6 +15,7 @@ import {
   addComment,
   createRoom,
   joinRoom,
+  removeMember,
   saveGoal,
   submitCheckin,
   updateRoom,
@@ -22,6 +23,7 @@ import {
 import type { Goal, Room } from "@/db/schema";
 import { DEFAULT_LEVELS, todayIn } from "@/lib/domain";
 import { MAX_PROOF_SIZE, PROOF_TYPES } from "@/lib/proof";
+import { ProofImagePreview, ProofLinkPreview } from "./proof-preview";
 import { Button } from "./ui/button";
 import {
   Dialog,
@@ -137,13 +139,7 @@ export function JoinForm({
   );
 }
 
-export function RoomForm({
-  room,
-  locked = false,
-}: {
-  room?: Room;
-  locked?: boolean;
-}) {
+export function RoomForm({ room }: { room?: Room }) {
   const router = useRouter();
   const [infinite, setInfinite] = useState(room ? !room.endDate : false);
   const [levels, setLevels] = useState(room?.pointLevels || DEFAULT_LEVELS);
@@ -162,26 +158,12 @@ export function RoomForm({
           title: String(form.get("title")),
           note: String(form.get("note")),
           visibility: String(form.get("visibility")),
-          startDate:
-            locked && room ? room.startDate : String(form.get("startDate")),
-          endDate:
-            locked && room
-              ? room.endDate || ""
-              : infinite
-                ? ""
-                : String(form.get("endDate")),
-          timezone:
-            locked && room ? room.timezone : String(form.get("timezone")),
-          missedDayFine:
-            locked && room
-              ? room.missedDayFine / 100
-              : String(form.get("missedDayFine")),
-          currency:
-            locked && room ? room.currency : String(form.get("currency")),
-          externalFine:
-            locked && room
-              ? room.externalFine
-              : String(form.get("externalFine")),
+          startDate: String(form.get("startDate")),
+          endDate: infinite ? "" : String(form.get("endDate")),
+          timezone: String(form.get("timezone")),
+          missedDayFine: String(form.get("missedDayFine")),
+          currency: String(form.get("currency")),
+          externalFine: String(form.get("externalFine")),
           pointLevels: levels,
         };
         startTransition(async () => {
@@ -235,12 +217,6 @@ export function RoomForm({
       </div>
       <div className="space-y-5 border-t pt-6">
         <div className="eyebrow">Schedule</div>
-        {locked ? (
-          <p className="rounded-md bg-muted p-3 text-xs text-muted-foreground">
-            Members have set their goals. Commitment dates, points, and fines
-            are now fixed.
-          </p>
-        ) : null}
         <div className="grid grid-cols-2 gap-4">
           <Field label="Start date" htmlFor="startDate">
             <Input
@@ -249,7 +225,6 @@ export function RoomForm({
               type="date"
               required
               defaultValue={room?.startDate || todayIn()}
-              disabled={locked}
             />
           </Field>
           <Field label="End date" htmlFor="endDate">
@@ -259,7 +234,7 @@ export function RoomForm({
               type="date"
               required={!infinite}
               defaultValue={room?.endDate || ""}
-              disabled={infinite || locked}
+              disabled={infinite}
             />
           </Field>
         </div>
@@ -268,7 +243,6 @@ export function RoomForm({
             type="checkbox"
             checked={infinite}
             onChange={(e) => setInfinite(e.target.checked)}
-            disabled={locked}
             className="accent-[#60806b]"
           />
           No end date
@@ -285,7 +259,6 @@ export function RoomForm({
               room?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone
             }
             required
-            disabled={locked}
           />
         </Field>
       </div>
@@ -293,7 +266,8 @@ export function RoomForm({
         <div className="eyebrow">Point levels</div>
         <p className="text-xs leading-relaxed text-muted-foreground">
           One check-in a day, with proof. Members choose the level they
-          achieved; points are awarded immediately.
+          achieved; points are awarded immediately. Changes apply to new
+          check-ins; earned points stay unchanged.
         </p>
         {levels.map((level, i) => (
           <div
@@ -305,7 +279,6 @@ export function RoomForm({
               <Input
                 aria-label={`Level ${i + 1} name`}
                 value={level.name}
-                disabled={locked}
                 required
                 maxLength={120}
                 onChange={(e) =>
@@ -324,7 +297,6 @@ export function RoomForm({
                   max={1000}
                   required
                   value={level.points}
-                  disabled={locked}
                   onChange={(e) =>
                     setLevels(
                       levels.map((l, j) =>
@@ -339,7 +311,6 @@ export function RoomForm({
             <Input
               aria-label={`Level ${i + 1} proof requirement`}
               value={level.requirement}
-              disabled={locked}
               minLength={5}
               maxLength={500}
               required
@@ -360,7 +331,7 @@ export function RoomForm({
           <Field
             label="Fine per missed day"
             htmlFor="missedDayFine"
-            hint="Optional. Set to 0 for a room without money fines."
+            hint="Set to 0 for no money fines. Changes recalculate totals for all missed days."
           >
             <Input
               id="missedDayFine"
@@ -371,7 +342,6 @@ export function RoomForm({
               step="0.01"
               defaultValue={room ? room.missedDayFine / 100 : 0}
               required
-              disabled={locked}
             />
           </Field>
           <Field label="Currency" htmlFor="currency">
@@ -380,7 +350,6 @@ export function RoomForm({
               name="currency"
               className="select-input"
               defaultValue={room?.currency || "IDR"}
-              disabled={locked}
             >
               <option>IDR</option>
               <option>USD</option>
@@ -400,7 +369,6 @@ export function RoomForm({
             placeholder="e.g. Miss 3 days? Buy the crew a coffee."
             defaultValue={room?.externalFine}
             maxLength={1000}
-            disabled={locked}
           />
         </Field>
       </div>
@@ -609,6 +577,7 @@ export function CheckinDialog({
   const [level, setLevel] = useState(0);
   const [error, setError] = useState("");
   const [file, setFile] = useState<{ id: string; name: string } | null>(null);
+  const [proofUrl, setProofUrl] = useState("");
   const [uploading, setUploading] = useState(false);
   const [pending, startTransition] = useTransition();
   async function upload(proof: File) {
@@ -616,9 +585,9 @@ export function CheckinDialog({
     setUploading(true);
     try {
       if (proof.size > MAX_PROOF_SIZE)
-        throw new Error("Proof files must be 500 KB or smaller.");
+        throw new Error("Proof images must be 500 KB or smaller.");
       if (!proof.size || !PROOF_TYPES.includes(proof.type))
-        throw new Error("Use a JPG, PNG, WebP, PDF, or MP4 file.");
+        throw new Error("Use a JPG, PNG, or WebP image.");
       const form = new FormData();
       form.append("roomId", room.id);
       form.append("file", proof);
@@ -671,6 +640,7 @@ export function CheckinDialog({
               else {
                 setOpen(false);
                 setFile(null);
+                setProofUrl("");
               }
             });
           }}
@@ -731,8 +701,11 @@ export function CheckinDialog({
               placeholder="https://…"
               required={!file}
               maxLength={2000}
+              value={proofUrl}
+              onChange={(event) => setProofUrl(event.target.value)}
             />
           </Field>
+          <ProofLinkPreview roomId={room.id} value={proofUrl} />
           {storageAvailable ? (
             <div>
               <label className="flex cursor-pointer items-center justify-center gap-2 rounded-md border border-dashed p-3 text-xs text-muted-foreground">
@@ -741,18 +714,39 @@ export function CheckinDialog({
                   ? "Uploading…"
                   : file
                     ? file.name
-                    : "Or upload proof · up to 500 KB"}
+                    : "Or upload an image · up to 500 KB"}
                 <input
                   type="file"
                   aria-label="Upload proof"
                   className="sr-only"
                   accept={PROOF_TYPES.join(",")}
-                  disabled={uploading}
+                  disabled={uploading || pending}
                   onChange={(e) => {
                     if (e.target.files?.[0]) void upload(e.target.files[0]);
+                    e.target.value = "";
                   }}
                 />
               </label>
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                JPG, PNG, or WebP.
+              </p>
+              {file ? (
+                <div className="mt-3 space-y-2">
+                  <ProofImagePreview
+                    key={file.id}
+                    src={`/api/proof/${file.id}?preview=1`}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    disabled={pending || uploading}
+                    onClick={() => setFile(null)}
+                  >
+                    Remove image
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
           <FormError error={error} />
@@ -765,6 +759,68 @@ export function CheckinDialog({
             <Busy pending={pending} />
           </Button>
         </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function RemoveMemberDialog({
+  roomId,
+  userId,
+  name,
+  kind,
+}: {
+  roomId: string;
+  userId: string;
+  name: string;
+  kind: "kick" | "ban";
+}) {
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
+  const [pending, startTransition] = useTransition();
+  const verb = kind === "ban" ? "Ban" : "Kick";
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" aria-label={`${verb} ${name}`}>
+          {verb}
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogTitle className="pr-6 text-sm font-medium">
+          {verb} {name}?
+        </DialogTitle>
+        <DialogDescription className="mb-5 mt-2 text-xs text-muted-foreground">
+          {kind === "ban"
+            ? "They will lose access to this room and cannot join again."
+            : "They will lose access to this room, but can join again."}{" "}
+          Their saved work will remain stored.
+        </DialogDescription>
+        <FormError error={error} />
+        <div className="mt-4 flex justify-end gap-2">
+          <Button
+            variant="outline"
+            disabled={pending}
+            onClick={() => setOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="destructive"
+            disabled={pending}
+            onClick={() => {
+              setError("");
+              startTransition(async () => {
+                const result = await removeMember(roomId, userId, kind);
+                if (!result.ok) setError(result.error);
+                else setOpen(false);
+              });
+            }}
+          >
+            {verb} member
+            {pending ? <Loader2 className="animate-spin" /> : null}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

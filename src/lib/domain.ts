@@ -79,6 +79,7 @@ export function memberStats(
   goal: Pick<Goal, "startDate" | "endDate"> | null,
   today: string,
   fine: number,
+  roomDates?: Pick<Room, "startDate" | "endDate">,
 ) {
   const dates = new Set(entries.map((c) => c.date));
   const sorted = [...dates].sort();
@@ -90,22 +91,29 @@ export function memberStats(
     bestStreak = Math.max(bestStreak, run);
     previous = date;
   }
-  const lastDay = goal?.endDate && goal.endDate < today ? goal.endDate : today;
+  // A master's room schedule edits also bound existing personal commitments.
+  const startDate =
+    goal && roomDates && roomDates.startDate > goal.startDate
+      ? roomDates.startDate
+      : goal?.startDate;
+  const endDate = [goal?.endDate, roomDates?.endDate]
+    .filter((date): date is string => Boolean(date))
+    .sort()[0];
+  const lastDay = endDate && endDate < today ? endDate : today;
   let cursor = dates.has(lastDay) ? lastDay : addDays(lastDay, -1);
   let streak = 0;
-  while (dates.has(cursor)) {
+  while (dates.has(cursor) && (!startDate || cursor >= startDate)) {
     streak++;
     cursor = addDays(cursor, -1);
   }
   const yesterday = addDays(today, -1);
-  const closedEnd =
-    goal?.endDate && goal.endDate < yesterday ? goal.endDate : yesterday;
+  const closedEnd = endDate && endDate < yesterday ? endDate : yesterday;
   const expected =
-    goal && closedEnd >= goal.startDate
-      ? daysBetween(goal.startDate, closedEnd) + 1
+    startDate && closedEnd >= startDate
+      ? daysBetween(startDate, closedEnd) + 1
       : 0;
-  const completed = goal
-    ? sorted.filter((d) => d >= goal.startDate && d <= closedEnd).length
+  const completed = startDate
+    ? sorted.filter((d) => d >= startDate && d <= closedEnd).length
     : 0;
   const missedDays = Math.max(0, expected - completed);
   return {

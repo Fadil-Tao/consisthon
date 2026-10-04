@@ -75,13 +75,17 @@ export async function readLocalProof(key: string) {
   }
 }
 
-export async function proofDownloadUrl(key: string, name: string) {
+export async function proofDownloadUrl(
+  key: string,
+  name: string,
+  inline = false,
+) {
   return getSignedUrl(
     s3,
     new GetObjectCommand({
       Bucket: process.env.S3_BUCKET,
       Key: key,
-      ResponseContentDisposition: `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+      ResponseContentDisposition: `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(name)}`,
     }),
     { expiresIn: 300 },
   );
